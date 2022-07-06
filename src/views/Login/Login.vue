@@ -20,14 +20,30 @@
             @submit-success="handleSubmit"
             layout="vertical"
           >
-            <a-form-item field="email" label="Email Address">
+            <a-form-item
+              field="username"
+              label="Username"
+              :rules="[
+                { required: true, message: 'Username is required' },
+                { minLength: 5, message: 'must be greater than 5 characters' },
+              ]"
+              :validate-trigger="['change', 'input']"
+            >
               <a-input
                 :style="{ height: '40px' }"
-                v-model="form.email"
+                v-model="form.username"
                 placeholder="Email address"
               />
             </a-form-item>
-            <a-form-item field="password" label="Password">
+            <a-form-item
+              field="password"
+              label="Password"
+              :rules="[
+                { required: true, message: 'Password is required' },
+                { minLength: 5, message: 'must be greater than 5 characters' },
+              ]"
+              :validate-trigger="['change', 'input']"
+            >
               <a-input
                 :style="{ height: '40px' }"
                 v-model="form.password"
@@ -43,7 +59,12 @@
               >
             </a-form-item>
             <a-form-item>
-              <input class="box-button" type="submit" value="Sign In" />
+              <a-spin :loading="loading">
+                <template #icon>
+                  <icon-sync />
+                </template>
+                <input class="box-button" type="submit" value="Sign In" />
+              </a-spin>
             </a-form-item>
           </a-form>
         </a-space>
@@ -55,14 +76,17 @@
 import { ref, reactive, getCurrentInstance, onMounted } from "vue";
 import { login } from "@/api/api";
 import { useRoute, useRouter } from "vue-router";
+import { useStore } from "vuex";
 
 const route = useRoute();
 const router = useRouter();
+const store = useStore();
 const { proxy } = getCurrentInstance();
+const loading = ref(false);
 
 onMounted(() => {
-  if (localStorage.getItem("email") && localStorage.getItem("password")) {
-    form.email = localStorage.getItem("email");
+  if (localStorage.getItem("username") && localStorage.getItem("password")) {
+    form.username = localStorage.getItem("username");
     form.password = localStorage.getItem("password");
     isRemember.value = true;
   }
@@ -70,31 +94,49 @@ onMounted(() => {
 
 let isRemember = ref(false);
 const form = reactive({
-  email: "",
+  username: "",
   password: "",
 });
 
 const handleSubmit = () => {
-  login(form).then(
-    (res) => {
-      router.push("/home");
-      if (isRemember.value) {
-        localStorage.setItem("email", form.email);
-        localStorage.setItem("password", form.password);
-      } else {
-        localStorage.removeItem("email");
-        localStorage.removeItem("password");
+  // console.log(222);
+  loading.value = true;
+  login(form)
+    .then(
+      (res) => {
+        router.push("/home");
+        proxy.$notification.success({
+          content: "登陆成功！",
+          closable: "true",
+        });
+        if (isRemember.value) {
+          localStorage.setItem("username", form.username);
+          localStorage.setItem("password", form.password);
+        } else {
+          localStorage.removeItem("username");
+          localStorage.removeItem("password");
+        }
+        resetForm();
+      },
+      (err) => {
+        router.push("/login");
+        proxy.$notification.error({
+          content: "用户名或密码错误！",
+          closable: "true",
+        });
+        isRemember.value = false;
+        resetForm();
+        console.log(err);
       }
-      form.email = "";
-      form.password = "";
-    },
-    (err) => {
-      router.push("/login");
-      form.email = "";
-      form.password = "";
-      console.log(err);
-    }
-  );
+    )
+    .finally(() => {
+      loading.value = false;
+    });
+};
+
+const resetForm = () => {
+  form.username = "";
+  form.password = "";
 };
 </script>
 <style scoped>
